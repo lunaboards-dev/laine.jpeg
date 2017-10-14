@@ -1,6 +1,6 @@
-### Laine 0.5
+### Laine.jpeg 0.5
 
-A textboard engine running on Luvit.
+A imageboard engine running on Luvit. (Based on Laine 0.5)
 
 This has a lot of requirements, I'm sorry.
 
@@ -23,3 +23,5 @@ Hopefully it works?
 [utf8.lua](https://github.com/Stepets/utf8.lua)
 
 [Weblit](https://github.com/creationix/weblit)
+
+[luaxyssl](https://github.com/lilien1010/luaxyssl)
