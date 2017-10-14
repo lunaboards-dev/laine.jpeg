@@ -1,0 +1,44 @@
+<html prefix="og: http://ogp.me/ns#">
+	<head>
+		<title>Luna - Blocked</title>
+		<link rel="stylesheet" type="text/css" href="/static/assets/theme.css">
+		<meta property="og:title" content="Blocked" />
+		<meta property="og:site_name" content="Luna" />
+		<meta property="og:url" content="http://lunaboards.tk/Blocked" />
+		<meta property="og:image" content="http://lunaboards.tk/static/assets/moooon.png" />
+		<link rel="icon" type="image/png" href="/static/assets/moooon.png">
+		<style>
+			#time {
+				color: darkred;
+				font-family: 'NeonPixel';
+				font-size: 60pt;
+			}
+		</style>
+		<!--script>
+			var timeobj;
+			var utime = {{time}};
+			function time() {
+				timeobj = document.getElementById("time");
+				setInterval(function() {
+
+					remaining = utime-((new Date()).getTime()/1000);
+					hours = Math.floor(remaining/3600);
+					mins = Math.floor(remaining/60 - (hours*60));
+					sec = Math.floor(remaining - hours*3600 - mins *60)
+					timeobj.innerHTML = hours+"h "+mins+"m "+sec+"s";
+				}, 100)
+			}
+		</script-->
+	</head>
+	<body onload="time()">
+		<h1><a href="../../../../../../../../../" class="hlink">Luna Error - 401</a></h1>
+		<!--div style="font-size: 30pt">Looks like your IP got blocked.<br>
+		Now quit spamming. Check back in</div>
+		<div id="time"></div>
+		<div>Note from admin:<br>
+		<{{note}}-->
+		<div style="font-size: 30pt">Looks like your IP got blocked.<br>
+			Nice one.</div>
+		</div>
+	</body>
+</html>

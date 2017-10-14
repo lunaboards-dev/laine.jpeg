@@ -1,0 +1,13 @@
+[Unit]
+Description=laine
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=simple
+Restart=always
+User=laine
+Group=laine
+WorkingDirectory=/opt/laine/
+ExecStart=/opt/laine/run.sh

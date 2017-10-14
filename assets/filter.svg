@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" height="0">
+	<filter id="svgGlow">
+	<feGaussianBlur stdDeviation="7" result="fpr1" in="SourceGraphic"/>
+	<feMerge>
+	  <feMergeNode in="SourceGraphic"/>
+	  <feMergeNode in="fpr1"/>
+	</feMerge>
+  </filter>
+  <filter id="svgGlowS">
+	<feGaussianBlur stdDeviation="2.5" result="fpr1" in="SourceGraphic"/>
+	<feMerge>
+	  <feMergeNode in="SourceGraphic"/>
+	  <feMergeNode in="fpr1"/>
+	</feMerge>
+  </filter>
+</svg>

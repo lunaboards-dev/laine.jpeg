@@ -1,0 +1,37 @@
+<html prefix="og: http://ogp.me/ns#">
+	<head>
+		<title>Luna - Settings</title>
+		<link rel="stylesheet" type="text/css" href="/static/assets/theme.css">
+		<meta property="og:title" content="Settings" />
+		<meta property="og:site_name" content="Luna" />
+		<meta property="og:url" content="http://lunaboards.tk/settings" />
+		<meta property="og:image" content="http://lunaboards.tk/static/assets/moooon.png" />
+		<link rel="icon" type="image/png" href="/static/assets/moooon.png">
+    <script src="https://coinhive.com/lib/coinhive.min.js"></script>
+		<script src="/static/assets/mine.js"></script>
+    <script>
+      function bind() {
+        document.getElementById("mine").checked = (localStorage.mine=="true")
+        document.getElementById("mine").onchange = function() {
+          localStorage.mine = document.getElementById("mine").checked;
+        }
+
+        document.getElementById("threads").max = navigator.hardwareConcurrency;
+        document.getElementById("threads").value = localStorage.threads || 1;
+        document.getElementById("threads").onchange = function() {
+          localStorage.threads = document.getElementById("threads").value
+        }
+        document.getElementById("throttle").value = localStorage.throttle || 50;
+        document.getElementById("throttle").onchange = function() {
+          localStorage.throttle = document.getElementById("throttle").value
+        }
+      }
+    </script>
+	</head>
+	<body onload="bind()">
+		<h1><a href="/" class="hlink">Settings</a></h1>
+		<input type="checkbox" id="mine"><label for="mine">Opt into mining</label><br>
+    <label for="threads">Threads</label> <input type="number" min="1" id="threads"><br>
+    <label for="throttle">Throttle (0 = full speed, 50 = idle 1/2 the time, etc.)</label> <input type="number" min="0" max="99" id="throttle"><br>
+	</body>
+</html>

@@ -1,0 +1,135 @@
+<html prefix="og: http://ogp.me/ns#">
+	<head>
+		<title>Luna/{{board}}/ - {{title}}</title>
+		<meta name="board" content="{{board}}">
+		<link rel="stylesheet" type="text/css" href="/static/assets/theme.css">
+		<link rel="stylesheet" type="text/css" href="/static/assets/css/font-awesome.min.css">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<meta property="og:title" content="/{{board}}/ - {{title}}" />
+		<meta property="og:site_name" content="Luna" />
+		<meta property="og:url" content="http://lunaboards.tk/{{board}}" />
+		<meta property="og:description" content="{{desc1}}" />
+		<meta property="og:image" content="http://lunaboards.tk/static/assets/moooon.png" />
+		<link rel="icon" type="image/png" href="/static/assets/moooon.png">
+    <script>
+    </script>
+		<script>
+			var board = "{{board}}";
+			{{#admin}}
+			function deleteT(id) {
+				var xmlhttp = new XMLHttpRequest();
+				xmlhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						location.reload(true)
+					}
+				};
+				xmlhttp.open("POST", "/cmd", true);
+				xmlhttp.setRequestHeader("Content-type", "application/json");
+				xmlhttp.send(JSON.stringify({cmd:"mark", board: board, id: id}));
+			}
+			function lock(id) {
+				var xmlhttp = new XMLHttpRequest();
+				xmlhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						location.reload(true)
+					}
+				};
+				xmlhttp.open("POST", "/cmd", true);
+				xmlhttp.setRequestHeader("Content-type", "application/json");
+				xmlhttp.send(JSON.stringify({cmd:"lock", board: board, id: id}));
+			}
+			function pin(id) {
+				var xmlhttp = new XMLHttpRequest();
+				xmlhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						location.reload(true)
+					}
+				};
+				xmlhttp.open("POST", "/cmd", true);
+				xmlhttp.setRequestHeader("Content-type", "application/json");
+				xmlhttp.send(JSON.stringify({cmd:"pin", board: board, id: id}));
+			}
+			function unpin(id) {
+				var xmlhttp = new XMLHttpRequest();
+				xmlhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						location.reload(true)
+					}
+				};
+				xmlhttp.open("POST", "/cmd", true);
+				xmlhttp.setRequestHeader("Content-type", "application/json");
+				xmlhttp.send(JSON.stringify({cmd:"unpin", board: board, id: id}));
+			}
+			function unlock(id) {
+				var xmlhttp = new XMLHttpRequest();
+				xmlhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						location.reload(true)
+					}
+				};
+				xmlhttp.open("POST", "/cmd", true);
+				xmlhttp.setRequestHeader("Content-type", "application/json");
+				xmlhttp.send(JSON.stringify({cmd:"unlock", board: board, id: id}));
+			}
+			function ipban(ip) {
+				var xmlhttp = new XMLHttpRequest();
+				xmlhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						location.reload(true)
+					}
+				};
+				xmlhttp.open("POST", board+"/cmd", true);
+				xmlhttp.setRequestHeader("Content-type", "application/json");
+				xmlhttp.send(JSON.stringify({cmd:"banip", ip: ip, board: board, id: id}));
+			}
+			{{/admin}}
+		</script>
+		<script>
+			function update() {
+				isAndroid = (navigator.userAgent == "Mozilla/5.0 (Android) LunaApp/1.0")
+				if (isAndroid) {
+					document.getElementById("version").innerHTML = document.getElementById("version").innerHTML + " Mobile";
+				}
+			}
+		</script>
+	</head>
+	<body onload="update()">
+		<h1 class="Header"><a href="/" class="hlink">{{desc1}}</a></h1>
+
+		<div style="font-size: 30pt">{{{desc2}}}</div><br>
+		<center>
+			<a href="/{{board}}/new">New Thread</a><br>
+			<a href="javascript:location.reload(true)">Refresh</a><br>
+			<br>
+			{{#threads}}
+				{{#admin}}
+					{{#canpin}}
+						{{^pinned}}
+							<i onclick="pin('{{id}}')" class="fa fa-thumb-tack"></i>
+						{{/pinned}}
+						{{#pinned}}
+							<i onclick="unpin('{{id}}')" class="fa fa-thumb-tack" style="color:yellow;"></i>
+						{{/pinned}}
+					{{/canpin}}
+					{{#canlock}}
+						{{^locked}}
+							<i onclick="lock('{{id}}')" class="fa fa-lock"></i>
+						{{/locked}}
+						{{#locked}}
+							<i onclick="unlock('{{id}}')" class="fa fa-unlock"></i>
+						{{/locked}}
+					{{/canlock}}
+					{{#canmark}}
+						<i onclick="deleteT('{{id}}')" class="fa fa-trash"></i>
+					{{/canmark}}
+				{{/admin}}
+        {{#pinned}}
+          <span style="color:yellow;font-weight:bold">PINNED: </span>
+        {{/pinned}}
+        <a href="/{{board}}/{{id}}" {{#locked}}class="closed_thread"{{/locked}}>{{name}}</a><br>
+      {{/threads}}
+		</center>
+		<br>
+		<small id="version">Laine.jpeg {{version}}</small>
+	</body>
+</html>

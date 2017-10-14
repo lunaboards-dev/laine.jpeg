@@ -1,0 +1,31 @@
+<html prefix="og: http://ogp.me/ns#">
+	<head>
+		<title>Luna - Late Night Shitposting</title>
+		<meta property="og:title" content="Late Night Shitposting" />
+		<meta property="og:site_name" content="Luna" />
+		<meta property="og:url" content="http://lunaboards.tk/" />
+		<meta property="og:image" content="http://lunaboards.tk/static/assets/moooon.png" />
+		<link rel="icon" type="image/png" href="/static/assets/moooon.png">
+		<link rel="stylesheet" type="text/css" href="/static/assets/theme.css">
+		<meta property="og:description" content="A simple, shitty textboard." />
+		<meta property="description" content="A simple, shitty textboard." />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script>
+			function update() {
+				isAndroid = (navigator.userAgent == "Mozilla/5.0 (Android) LunaApp/1.0")
+				if (isAndroid) {
+					document.getElementById("version").innerHTML = document.getElementById("version").innerHTML + " Mobile";
+				}
+			}
+		</script>
+	</head>
+	<body onload="update()">
+		<div class="Header" id="lunaheader" style="font-size: 100pt">Luna</div><br><br><br>
+		<div style="color:darkred">Assume all boards are NSFW</div>
+		{{#boards}}
+			<a href="/{{id}}">/{{id}}/ - {{desc1}}</a><br>
+		{{/boards}}
+		<br>
+		<small id="version">Laine.jpeg {{version}}</small>
+	</body>
+</html>

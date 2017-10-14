@@ -1,0 +1,163 @@
+@font-face {
+ font-family:'NeonPixel';
+ src:url('neon_pixel-7.ttf');
+ font-weight:normal;
+ font-style:normal;
+}
+@font-face {
+ font-family:'SmallPixel';
+ src:url('FSEX300.ttf');
+ font-weight:normal;
+ font-style:normal;
+}
+@font-face {
+ font-family:'7Seg';
+ src:url('dseg7.ttf');
+ font-weight:normal;
+ font-style:normal;
+}
+
+@keyframes lunaflicker {
+    0% {
+    	color: #FFF;
+    }
+    5% {
+    	color: #FFF;
+    }
+    7% {
+    	color: #777;
+    }
+    9% {
+    	color: #FFF;
+    }
+    11% {
+    	color: #777;
+    }
+    13% {
+    	color: #FFF;
+    }
+    15% {
+    	color: #777;
+    }
+    17% {
+    	color: #FFF;
+    }
+    70% {
+    	color: #FFF;
+    }
+    100% {
+    	color: #AAA;
+    }
+}
+
+#lunaheader {
+	text-shadow: none;
+	filter: url("/static/assets/filter.svg#svgGlow");
+	animation: lunaflicker 8s linear 0s infinite;
+}
+
+.Header {
+	font-family: 'NeonPixel';
+	font-size: 60pt;
+	font-weight: initial;
+	text-align: center;
+	text-shadow: 0px 0px 3px lightgrey;
+}
+
+body {
+	font-family: 'SmallPixel';
+	font-size: 20pt;
+	font-weight: initial;
+	text-align: center;
+	color: white;
+	background: black;
+}
+
+textarea, input, button {
+	font-size: 20pt;
+	background-color: black;
+	color: white;
+	font-family: 'SmallPixel';
+	border: 0px solid white;
+}
+
+.name {
+  text-align: left;
+}
+
+textarea {
+	border-width: 1px;
+}
+
+input {
+	border-bottom: 1px solid white;
+}
+
+input[type="submit"] {
+  border-width: 0px;
+}
+
+a {
+	color: white;
+	text-decoration: none;
+}
+a:visited {
+	color: white;
+}
+
+.hlink {
+	color: white !important;
+	text-decoration: none;
+}
+
+.post {
+	text-align: left;
+}
+.pcont {
+	text-align: left;
+	padding-left: 3vw;
+}
+.userimg {
+	max-width: 20vw;
+	text-align: left;
+}
+.post::before  {
+	content: " | "
+}
+
+.closed_thread {
+	color: grey !important;
+}
+a.userlink {
+	color: #86C7FF !important;
+    text-decoration: underline;
+}
+a.userlink:visited {
+	color: #A784E8 !important;
+}
+::-moz-selection {
+  color: black;
+  background-color: white;
+}
+::selection {
+  color: black;
+  background-color: white;
+}
+.fileinfo {
+	font-size: 10pt;
+}
+
+:invalid {
+  box-shadow: none;
+  border-color: red;
+}
+
+:-moz-submit-invalid {
+  box-shadow: none;
+  border-color: red;
+}
+
+:-moz-ui-invalid {
+  box-shadow: none;
+  border-color: red;
+}
