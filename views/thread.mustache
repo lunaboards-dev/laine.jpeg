@@ -52,13 +52,12 @@
 		<br>
 		{{^locked}}
 		<a id="refresh" href="javascript:location.reload(true)">Refresh</a><br>
-		<div id="replytext">Reply:</div>
 		<!--input id="file" type="file" accept="image/*"><br>
-		<textarea id="content" rows="7" cols="50" style="resize: none;"></textarea><br>
+		<textarea id="content" rows="7" cols="50" style="resize: none; width: 100%; max-width: 500px;"></textarea><br>
 		<button id="submit" onclick="submit()">Submit</button><br-->
 		<form id="post" action="/{{board}}/post" method="post" enctype="multipart/form-data">
 			<input name="file" type="file" accept="image/*"><br>
-			<textarea name="content" rows="7" cols="30" style="resize: none;" autocomplete="off" maxlength="2000" required="true" form="post"></textarea><br>
+			<textarea name="content" rows="7" cols="30" style="resize: none; width: 100%; max-width: 500px;" autocomplete="off" maxlength="2000" required="true" form="post" placeholder="Reply"></textarea><br>
 			<input type="hidden" name="board" value="{{board}}">
 			<input type="hidden" name="id" value="{{id}}">
 			<button type="submit">Submit</button>
