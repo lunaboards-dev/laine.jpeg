@@ -215,6 +215,8 @@ end)
             assert(con:execute(string.format("INSERT INTO posts (date, board, id, ip, post, admin) VALUES (%d, '%s', '%s', '%s', '%s', '%s')", os.time(), con:escape(data.board), con:escape(data.id), con:escape(req.headers["X-Forwarded-For"] or "localhost"), con:escape("<span style=\"color:darkred\">This thread has been unpinned.</span>"), con:escape(admin))))
         elseif (data.cmd == "banip" and hasperm(req, "ban")) then
 
+        elseif (data.cmd == "delp" and hasperm(req, "delete_reply")) then
+            assert(con:execute("DELETE FROM posts WHERE postid="..con:escape(data.id)))
         end
         res.body = "ok"
         res.code = 200
@@ -233,7 +235,7 @@ end)
     end
 }, function(req, res)
     --Render!
-    res.body = lustache:render(templates["boards"], {boards=boards, version=version, admin=req.admin})
+    res.body = lustache:render(templates["boards"], {boards=boards, version=version, admin=req.admin, boards=boards})
     res.code = 200
 end)
 
@@ -273,7 +275,7 @@ end)
         canmark = hasperm(req, "mark_thread")
     end
     --Render!
-    res.body = lustache:render(templates["threads"], {threads=thd, board=req.params.board, desc1=cfg["board_"..req.params.board].desc1, desc2=cfg["board_"..req.params.board].desc2, title=cfg["board_"..req.params.board].title, version=version, admin=req.admin, canpin=canpin, canlock=canlock, canmark=canmark})
+    res.body = lustache:render(templates["threads"], {threads=thd, board=req.params.board, desc1=cfg["board_"..req.params.board].desc1, desc2=cfg["board_"..req.params.board].desc2, title=cfg["board_"..req.params.board].title, version=version, admin=req.admin, canpin=canpin, canlock=canlock, canmark=canmark,boards=boards})
     res.code = 200
 end)
 
@@ -282,7 +284,7 @@ end)
 }, function(req, res)
     --Check if valid board.
     if (cfg["board_"..req.params.board] == nil) then return end
-    res.body = lustache:render(templates["new"], {board=req.params.board, version=version})
+    res.body = lustache:render(templates["new"], {board=req.params.board, version=version, boards=boards})
     res.code = 200
 end)
 
@@ -292,6 +294,11 @@ end)
     method = "POST"
 }, function(req, res)
     --Check if valid board.
+    if (#req.body > 3 * 1024 * 1024) then
+        req.body = req.body:gsub("403", "413")
+        req.code = 413
+        return
+    end
     if (cfg["board_"..req.params.board] == nil) then return end
     local data = lnutils.get_multiform_data(req)
     --Check if valid board.
@@ -335,7 +342,7 @@ end)
         end
         if ((#data.file.data) < 2.5*1024*1024) then
             local fdata = data.file.data
-            if (lnutils.detect_img_type(fdata) ~= "not img") then 
+            if (lnutils.detect_img_type(fdata) ~= "not img") then
                 file = "/imgs/"..req.params.board.."/"..id.."/"..b64.encode(xy.hash("sha2"):digest(fdata)).."."..lnutils.detect_img_type(fdata)
                 fs.writeFile("."..file, fdata, function() end) --don't even try
                 hasfile = 1
@@ -354,45 +361,53 @@ end)
     method="POST"
 }, function(req, res)
     --local data=json.parse(req.body)
-    local data = lnutils.get_multiform_data(req)
-    --Do our checks
-    if (cfg["board_"..data.board] == nil) then return end
-    local cur = assert(con:execute("SELECT name, locked FROM threads WHERE id='"..con:escape(data.id).."' AND board='"..con:escape(data.board).."'"))
-    local thdinfo = cur:fetch({}, "a")
-    cur:close() --Close it!
-    if (thdinfo == nil) then return end
-    --Make sure the post is not too long.
-    if (1 > utf8.len(data.content) or 2000 < utf8.len(data.content)) then
-        data.content = "and that's why we should take over poland"
-    end
-    --Insert
-    local admin = ""
-    if (req.admin) then
-        admin = "<div class=\"name\" style=\"color:#"..cfg["role_"..req.admin.perm].color.."\">"..cfg["role_"..req.admin.perm].prefix..req.admin.name.."</div>"
-    end
-    local hasfile = 0
-    local file = ""
-    if (data.file.data ~= "") then
-        if (not fs.existsSync("imgs/"..data.board.."/")) then
-            fs.mkdirSync("imgs/"..data.board)
+    local co = coroutine.create(function()
+        if (#req.body > 3 * 1024 * 1024) then
+            req.body = req.body:gsub("403", "413")
+            req.code = 413
+            return
         end
-        if (not fs.existsSync("imgs/"..data.board.."/"..data.id)) then
-            fs.mkdirSync("imgs/"..data.board.."/"..data.id)
+        local data = lnutils.get_multiform_data(req)
+        --Do our checks
+        if (cfg["board_"..data.board] == nil) then return end
+        local cur = assert(con:execute("SELECT name, locked FROM threads WHERE id='"..con:escape(data.id).."' AND board='"..con:escape(data.board).."'"))
+        local thdinfo = cur:fetch({}, "a")
+        cur:close() --Close it!
+        if (thdinfo == nil) then return end
+        --Make sure the post is not too long.
+        if (1 > utf8.len(data.content) or 2000 < utf8.len(data.content)) then
+            data.content = "and that's why we should take over poland"
         end
-        if ((#data.file.data) < 2.5*1024*1024) then
-            local fdata = data.file.data
-            if (lnutils.detect_img_type(fdata) ~= "not img") then 
-                file = "/imgs/"..req.params.board.."/"..data.id.."/"..b64.encode(xy.hash("sha2"):digest(fdata)).."."..lnutils.detect_img_type(fdata)
-                fs.writeFile("."..file, fdata, function() end) --don't even try
-                hasfile = 1
+        --Insert
+        local admin = ""
+        if (req.admin) then
+            admin = "<div class=\"name\" style=\"color:#"..cfg["role_"..req.admin.perm].color.."\">"..cfg["role_"..req.admin.perm].prefix..req.admin.name.."</div>"
+        end
+        local hasfile = 0
+        local file = ""
+        if (data.file.data ~= "") then
+            if (not fs.existsSync("imgs/"..data.board.."/")) then
+                fs.mkdirSync("imgs/"..data.board)
+            end
+            if (not fs.existsSync("imgs/"..data.board.."/"..data.id)) then
+                fs.mkdirSync("imgs/"..data.board.."/"..data.id)
+            end
+            if ((#data.file.data) < 2.5*1024*1024) then
+                local fdata = data.file.data
+                if (lnutils.detect_img_type(fdata) ~= "not img") then
+                    file = "/imgs/"..req.params.board.."/"..data.id.."/"..b64.encode(xy.hash("sha2"):digest(fdata)).."."..lnutils.detect_img_type(fdata)
+                    fs.writeFile("."..file, fdata, function() end) --don't even try
+                    hasfile = 1
+                end
             end
         end
-    end
-    assert(con:execute(string.format("INSERT INTO posts (date, board, id, ip, post, admin, hasimg, img) VALUES (%d, '%s', '%s', '%s', '%s', '%s', %d, '%s')", os.time(), con:escape(data.board), con:escape(data.id), con:escape(req.headers["X-Forwarded-For"] or "localhost"), con:escape(lnutils.ptext(lnutils.escape_html(data.content, req.admin))), con:escape(admin), hasfile, con:escape(file))))
-    assert(con:execute("UPDATE threads SET lastupdate="..os.time().." WHERE board='"..con:escape(data.board).."' AND id='"..con:escape(data.id).."'"))
-    res.headers["Location"] = "/"..req.params.board.."/"..data.id
-    res.body = "ok"
-    res.code = 303
+        assert(con:execute(string.format("INSERT INTO posts (date, board, id, ip, post, admin, hasimg, img) VALUES (%d, '%s', '%s', '%s', '%s', '%s', %d, '%s')", os.time(), con:escape(data.board), con:escape(data.id), con:escape(req.headers["X-Forwarded-For"] or "localhost"), con:escape(lnutils.ptext(lnutils.escape_html(data.content, req.admin))), con:escape(admin), hasfile, con:escape(file))))
+        assert(con:execute("UPDATE threads SET lastupdate="..os.time().." WHERE board='"..con:escape(data.board).."' AND id='"..con:escape(data.id).."'"))
+        res.headers["Location"] = "/"..req.params.board.."/"..data.id
+        res.body = "ok"
+        res.code = 303
+    end)
+    coroutine.resume(co)
 end)
 
 .route({path="/:board/:id"}, function(req, res)
@@ -422,19 +437,31 @@ end)
         return a.date < b.date
     end)
     --Render
-    res.body = lustache:render(templates["thread"], {title=thdinfo.name, board=req.params.board, id=req.params.id, locked=thdinfo.locked~="0", posts=posts, desc1=cfg["board_"..req.params.board].desc1, version=version,
-                                                                                                                                                                                                                    getpostid = function(self)
-                                                                                                                                                                                                                        return self.postid
-                                                                                                                                                                                                                    end,
-                                                                                                                                                                                                                    getfilename = function(self)
-                                                                                                                                                                                                                        return self.img:gsub("^.+/", "")
-                                                                                                                                                                                                                    end,
-                                                                                                                                                                                                                    gettimestamp = function(self)
-                                                                                                                                                                                                                        return os.date("%a %b %d, %Y %X", tonumber(self.date))
-                                                                                                                                                                                                                    end,
-                                                                                                                                                                                                                    getsize = function(self)
-                                                                                                                                                                                                                        return fsize(fs.statSync("."..self.img).size)
-                                                                                                                                                                                                                    end})
+    res.body = lustache:render(templates["thread"], {
+        title=thdinfo.name,
+        board=req.params.board,
+        id=req.params.id,
+        locked=thdinfo.locked~="0",
+        posts=posts,
+        desc1=cfg["board_"..req.params.board].desc1,
+        version=version,
+        getpostid = function(self)
+            return self.postid
+        end,
+        getfilename = function(self)
+            return self.img:gsub("^.+/", "")
+        end,
+        gettimestamp = function(self)
+            return os.date("%a %b %d, %Y %X", tonumber(self.date))
+        end,
+        getsize = function(self)
+            return fsize(fs.statSync("."..self.img).size)
+        end,
+        isadmin = req.admin ~= nil,
+        canban = hasperm(req, "ban"),
+        candelete = hasperm(req, "delete_reply"),
+        boards=boards
+    })
     res.code = 200
 end)
 

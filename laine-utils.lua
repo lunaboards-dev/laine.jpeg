@@ -65,6 +65,7 @@ lu.generate_session = function(con, user, pass)
 end
 --Check if admin table has permission to do x
 lu.has_perm = function(c, a, s)
+    if (a == nil) then return false end
     local p = c["role_"..a.perm]
     return p[s]
 end

@@ -7,9 +7,9 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<meta property="og:title" content="/{{board}}/ - {{title}}" />
 		<meta property="og:site_name" content="Luna" />
-		<meta property="og:url" content="http://lunaboards.tk/{{board}}" />
+		<meta property="og:url" content="http://lunaboards.xyz/{{board}}" />
 		<meta property="og:description" content="{{desc1}}" />
-		<meta property="og:image" content="http://lunaboards.tk/static/assets/moooon.png" />
+		<meta property="og:image" content="http://lunaboards.xyz/static/assets/moooon.png" />
 		<link rel="icon" type="image/png" href="/static/assets/moooon.png">
     <script>
     </script>
@@ -78,7 +78,7 @@
 						location.reload(true)
 					}
 				};
-				xmlhttp.open("POST", board+"/cmd", true);
+				xmlhttp.open("POST", "/cmd", true);
 				xmlhttp.setRequestHeader("Content-type", "application/json");
 				xmlhttp.send(JSON.stringify({cmd:"banip", ip: ip, board: board, id: id}));
 			}
@@ -94,8 +94,12 @@
 		</script>
 	</head>
 	<body onload="update()">
+		<small>[
+		{{#boards}}
+			<a href="/{{id}}">/{{id}}/</a>
+		{{/boards}}
+		 ]</small>
 		<h1 class="Header"><a href="/" class="hlink">{{desc1}}</a></h1>
-
 		<div style="font-size: 30pt">{{{desc2}}}</div><br>
 		<center>
 			<a href="/{{board}}/new">New Thread</a><br>

@@ -5,15 +5,15 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<meta property="og:title" content="/{{board}}/ - New Thread" />
 		<meta property="og:site_name" content="Luna" />
-		<meta property="og:url" content="http://lunaboards.tk/{{board}}/new" />
-		<meta property="og:image" content="http://lunaboards.tk/static/assets/moooon.png" />
+		<meta property="og:url" content="http://lunaboards.xyz/{{board}}/new" />
+		<meta property="og:image" content="http://lunaboards.xyz/static/assets/moooon.png" />
 		<link rel="icon" type="image/png" href="/static/assets/moooon.png">
 		<script>
 			function update() {
 				document.onkeypress = function(e) {
 					if (e.key == "Escape") {
 						e.preventDefault();
-						window.location.href = "https://lunaboards.tk/"+board;
+						window.location.href = "https://lunaboards.xyz/"+board;
 					}
 				}
 				if (isAndroid) {
@@ -25,11 +25,16 @@
 		</script>
 		<script>
 			var board = "{{board}}";
-			
+
 		</script>
 		 <link rel="stylesheet" type="text/css" href="/static/assets/theme.css">
 	</head>
 	<body onload="update()">
+		<small>[
+		{{#boards}}
+			<a href="/{{id}}">/{{id}}/</a>
+		{{/boards}}
+		 ]</small>
 		<h1 class="Header"><a href="/{{board}}" class="hlink">New Thread</a></h1>
 		<!--span>Title:</span><br>
 		<input id="title" maxlength="30"><br>
