@@ -3,6 +3,16 @@ local lu = {}
 local b64 = require("base64_laine")
 local crand = io.open("/dev/urandom")
 local bit = require("bit")
+function os.capture(cmd, raw)
+  local f = assert(io.popen(cmd, 'r'))
+  local s = assert(f:read('*a'))
+  f:close()
+  if raw then return s end
+  s = string.gsub(s, '^%s+', '')
+  s = string.gsub(s, '%s+$', '')
+  s = string.gsub(s, '[\n\r]+', ' ')
+  return s
+end
 
 lu.explode = function(d,p)
    local t, ll
@@ -74,6 +84,7 @@ lu.detect_img_type = function(data)
   if (data:sub(1,4) == string.char(0x89, 0x50, 0x4e, 0x47)) then return "png" end
   if (data:sub(1,3) == string.char(0xff, 0xd8, 0xff)) then return "jpeg" end
   if (data:sub(1, 6) == "GIF87a" or data:sub(1,6) == "GIF89a") then return "gif" end
+  if (data:sub(1, 64):find("webm") ~= nil) then return "webm" end
   return "not img"
 end
 
@@ -84,6 +95,14 @@ lu.true_rand = function()
   r=r+bit.lshift(crand:read(1):byte(), 24)
   r=r+bit.lshift(1, 33)
   return math.abs(r)
+end
+
+lu.strip_sound = function(tmp, file)
+  os.execute("sleep 0.1")
+  p(os.capture(string.format("ffmpeg -y -i /tmp/luna/%s -vcodec copy -an .%s", tmp, file), true))
+  p(string.format("ffmpeg -y -i /tmp/luna/%s -vf \"select=eq(n\\,0)\" -q:v 3 .%s_thumb.jpg", tmp, file))
+  p(os.capture(string.format("ffmpeg -y -i %s -vf \"select=eq(n\\,0)\" -q:v 3 .%s_thumb.jpg", tmp, file), true))
+  --os.execute("rm /tmp/luna/"..tmp)
 end
 
 lu.get_multiform_data = function(req)

@@ -1,6 +1,6 @@
 ### Laine.jpeg 0.5
 
-A imageboard engine running on Luvit. (Based on Laine 0.5)
+An imageboard engine running on Luvit. (Based on Laine 0.5)
 
 This has a lot of requirements, I'm sorry.
 

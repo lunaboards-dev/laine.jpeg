@@ -21,6 +21,13 @@ local base64 = require("base64")
 local xy = require("lxyssl")
 local fsize = require("size")
 
+local allowed_mimes = {
+  ["image/jpeg"] = true,
+  ["image/png"] = true,
+  ["image/gif"] = true,
+  ["video/webm"] = true
+}
+
 --Load config
 print("Loading config...")
 local cfg = lip.load('config.ini')
@@ -226,6 +233,81 @@ end)
     end
 end)
 
+.route({
+  path = "/api/boards",
+  method = "GET"
+}, function(req, res)
+  res.headers["Content-Type"] = "application/json; charset=utf-8"
+  res.body = json.stringify(boards)
+  res.code = 200
+end)
+
+.route({
+  path = "/api/threads",
+  method = "GET"
+}, function(req, res)
+  if (cfg["board_"..req.query.board] == nil) then return end
+  --Make our request.
+  local cur = assert(con:execute("SELECT * FROM threads WHERE board='"..con:escape(req.query.board).."'"))
+  local thd = {}
+  local row = cur:fetch ({}, "a")
+  --Get all the data.
+  while row do
+      thd[#thd+1] = {}
+      thd[#thd].name = row.name
+      thd[#thd].id = tonummber(row.id)
+      thd[#thd].lastupdate = tonumber(row.lastupdate)
+      thd[#thd].locked = row.locked ~= "0"
+      thd[#thd].pinned = row.pinned ~= "0"
+      row = cur:fetch({}, "a")
+  end
+
+  table.sort(thd, function(a, b)
+      if (a.pinned and b.pinned) then return a.lastupdate > b.lastupdate end
+      if (a.pinned) then return true end
+      if (b.pinned) then return false end
+      return a.lastupdate > b.lastupdate
+  end)
+  res.headers["Content-Type"] = "application/json; charset=utf-8"
+  res.body = json.stringify(thd)
+  res.code = 200
+end)
+
+.route({
+  path = "/api/posts",
+  method = "GET"
+}, function(req, res)
+  if (cfg["board_"..req.query.board] == nil) then return end
+  local cur = assert(con:execute("SELECT name, locked FROM threads WHERE id='"..con:escape(req.query.id).."' AND board='"..con:escape(req.query.board).."'"))
+  local thdinfo = cur:fetch({}, "a")
+  cur:close()
+  if (thdinfo == nil) then return end
+  cur = assert(con:execute("SELECT * FROM posts WHERE id='"..con:escape(req.query.id).."'"))
+  local posts = {}
+  local r = {}
+  while r do
+      r = cur:fetch({}, "a")
+      if (r ~= nil) then
+          posts[#posts+1] = {}
+          if r.admin ~= "" then
+            posts[#posts].admin = r.admin:gsub("<.->", "")
+          end
+          posts[#posts].id = tonumber(r.postid)
+          posts[#posts].date = tonumber(r.date)
+          posts[#posts].img = r.img or ""
+          posts[#posts].post = r.post:gsub("<br>", "\r\n"):gsub("<.->", ""):gsub("&gt;", ">")
+          posts[#posts].hasvid = r.hasimg == "2"
+          posts[#posts].hasimg = r.hasimg == "1"
+      end
+  end
+  table.sort(posts, function(a, b)
+      return a.id < b.id
+  end)
+  res.headers["Content-Type"] = "application/json; charset=utf-8"
+  res.body = json.stringify(posts)
+  res.code = 200
+end)
+
 --Board list
 .route({
     path = "/:board",
@@ -235,7 +317,7 @@ end)
     end
 }, function(req, res)
     --Render!
-    res.body = lustache:render(templates["boards"], {boards=boards, version=version, admin=req.admin, boards=boards})
+    res.body = lustache:render(templates["boards"], {boards=boards, version=version, admin=req.admin})
     res.code = 200
 end)
 
@@ -294,7 +376,7 @@ end)
     method = "POST"
 }, function(req, res)
     --Check if valid board.
-    if (#req.body > 3 * 1024 * 1024) then
+    if (#req.body > 6 * 1024 * 1024) then
         req.body = req.body:gsub("403", "413")
         req.code = 413
         return
@@ -333,19 +415,26 @@ end)
     end
     local hasfile = 0
     local file = ""
-    if (data.file ~= "") then
-        if (not fs.existsSync("imgs/"..req.params.board.."/")) then
-            fs.mkdirSync("imgs/"..req.params.board)
+    if (data.file.data ~= "") then
+        if (not fs.existsSync("imgs/"..data.board.."/")) then
+            fs.mkdirSync("imgs/"..data.board)
         end
-        if (not fs.existsSync("imgs/"..req.params.board.."/"..id)) then
-            fs.mkdirSync("imgs/"..req.params.board.."/"..id)
+        if (not fs.existsSync("imgs/"..data.board.."/"..id)) then
+            fs.mkdirSync("imgs/"..data.board.."/"..id)
         end
-        if ((#data.file.data) < 2.5*1024*1024) then
+        if ((#data.file.data) < 5*1024*1024) then
             local fdata = data.file.data
-            if (lnutils.detect_img_type(fdata) ~= "not img") then
+            if (lnutils.detect_img_type(fdata) ~= "not img" and allowed_mimes[data.file.mime]) then
                 file = "/imgs/"..req.params.board.."/"..id.."/"..b64.encode(xy.hash("sha2"):digest(fdata)).."."..lnutils.detect_img_type(fdata)
-                fs.writeFile("."..file, fdata, function() end) --don't even try
-                hasfile = 1
+                local tmpfile = b64.encode(xy.hash("sha2"):digest(fdata)).."."..lnutils.detect_img_type(fdata)
+                if (lnutils.detect_img_type(fdata) == "webm") then
+                  fs.writeFileSync("/tmp/luna/"..tmpfile, fdata)
+                  lnutils.strip_sound(tmpfile, file)
+                  hasfile = 2
+                else
+                  fs.writeFile("."..file, fdata, function() end)
+                  hasfile = 1
+                end
             end
         end
     end
@@ -362,7 +451,7 @@ end)
 }, function(req, res)
     --local data=json.parse(req.body)
     local co = coroutine.create(function()
-        if (#req.body > 3 * 1024 * 1024) then
+        if (#req.body > 6 * 1024 * 1024) then
             req.body = req.body:gsub("403", "413")
             req.code = 413
             return
@@ -392,12 +481,19 @@ end)
             if (not fs.existsSync("imgs/"..data.board.."/"..data.id)) then
                 fs.mkdirSync("imgs/"..data.board.."/"..data.id)
             end
-            if ((#data.file.data) < 2.5*1024*1024) then
+            if ((#data.file.data) < 5*1024*1024) then
                 local fdata = data.file.data
-                if (lnutils.detect_img_type(fdata) ~= "not img") then
-                    file = "/imgs/"..req.params.board.."/"..data.id.."/"..b64.encode(xy.hash("sha2"):digest(fdata)).."."..lnutils.detect_img_type(fdata)
-                    fs.writeFile("."..file, fdata, function() end) --don't even try
+                if (lnutils.detect_img_type(fdata) ~= "not img" and allowed_mimes[data.file.mime]) then
+                  file = "/imgs/"..req.params.board.."/"..data.id.."/"..b64.encode(xy.hash("sha2"):digest(fdata)).."."..lnutils.detect_img_type(fdata)
+                  local tmpfile = b64.encode(xy.hash("sha2"):digest(fdata)).."."..lnutils.detect_img_type(fdata)
+                  if (lnutils.detect_img_type(fdata) == "webm") then
+                    fs.writeFileSync("/tmp/luna/"..tmpfile, fdata)
+                    lnutils.strip_sound(tmpfile, file)
+                    hasfile = 2
+                  else
+                    fs.writeFile("."..file, fdata, function() end)
                     hasfile = 1
+                  end
                 end
             end
         end
@@ -427,14 +523,15 @@ end)
         r = cur:fetch({}, "a")
         if (r ~= nil) then
             posts[#posts+1] = r
+            posts[#posts].hasvid = posts[#posts].hasimg == "2"
             posts[#posts].hasimg = posts[#posts].hasimg == "1"
         end
     end
     --TODO add admin check and shit
 
-    --Sort by date.
+    --Sort by ID.
     table.sort(posts, function(a, b)
-        return a.date < b.date
+        return a.postid < b.postid
     end)
     --Render
     res.body = lustache:render(templates["thread"], {
@@ -460,7 +557,14 @@ end)
         isadmin = req.admin ~= nil,
         canban = hasperm(req, "ban"),
         candelete = hasperm(req, "delete_reply"),
-        boards=boards
+        boards=boards,
+        getthumb = function(self)
+          if fs.existsSync("."..self.img.."_thumb.jpg") then
+            return "/static"..self.img .. "_thumb.jpg"
+          else
+            return "/static/assets/nothumb.jpg"
+          end
+        end
     })
     res.code = 200
 end)
@@ -494,6 +598,8 @@ function threadgc()
         fs.rmdirSync("imgs/"..t.board.."/"..t.id)
         t = r:fetch({}, "a")
     end
+    os.execute("rm -rf /tmp/luna")
+    os.execute("mkdir /tmp/luna")
     print("Thread-GC Complete.")
 end
 

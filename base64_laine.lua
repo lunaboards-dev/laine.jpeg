@@ -9,7 +9,7 @@ require('math')
 local index_table = 'QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm0123456789-_'
 
 
-function to_binary(integer)
+local function to_binary(integer)
     local remaining = tonumber(integer)
     local bin_bits = ''
 
@@ -27,12 +27,12 @@ function to_binary(integer)
     return bin_bits
 end
 
-function from_binary(bin_bits)
+local function from_binary(bin_bits)
     return tonumber(bin_bits, 2)
 end
 
 
-function to_base64(to_encode)
+local function to_base64(to_encode)
     local bit_pattern = ''
     local encoded = ''
     local trailing = ''
@@ -60,7 +60,7 @@ function to_base64(to_encode)
 end
 
 
-function from_base64(to_decode)
+local function from_base64(to_decode)
     local padded = to_decode:gsub("%s", "")
     local unpadded = padded:gsub("~", "")
     local bit_pattern = ''
