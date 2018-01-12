@@ -20,6 +20,7 @@ local b64 = require("base64_laine")
 local base64 = require("base64")
 local xy = require("lxyssl")
 local fsize = require("size")
+local msg = require("cmsgpack")
 
 local allowed_mimes = {
   ["image/jpeg"] = true,
@@ -52,8 +53,8 @@ local templates = {
     ["login"] = fs.readFileSync(pathJoin(module.dir, cfg.General.template_dir, "login.html")),
 }
 
---Connect to database
-local con = assert(mysql:connect(cfg.MySQL.db,cfg.MySQL.user,cfg.MySQL.pass, "192.168.1.250"))
+--(dont) Connect to database
+--local con = assert(mysql:connect(cfg.MySQL.db,cfg.MySQL.user,cfg.MySQL.pass, "192.168.1.250"))
 
 --Log function
 local function log(s, l)
@@ -90,6 +91,8 @@ end)
 
 --Put in custom headers and custom error page. Also check for admin privs.
 .use(function (req, res, go)
+
+	local con = assert(mysql:connect(cfg.MySQL.db,cfg.MySQL.user,cfg.MySQL.pass, "192.168.1.250"))
 	res.headers["Content-Type"] = "text/html; charset=utf-8"
 	res.headers["X-Board-Software"] = "Laine.jpeg "..version
 	res.headers["X-Powered-By"] = jit.version.." "..jit.arch
@@ -101,6 +104,7 @@ end)
     if (f ~= nil) then
         req.admin = f
     end
+    con:close()
 	return go()
 end)
 
@@ -173,7 +177,10 @@ end)
     method="POST"
 }, function(req, res)
     --p(req)
-    p(lnutils.get_multiform_data(req))
+    local dbg = io.open(".mpdebug", "w")
+    dbg:write(req.body)
+    dbg:close()
+    local data = lnutils.get_multiform_data(req)
     res.body = "OK"
     res.code = 200
 end)
@@ -182,13 +189,20 @@ end)
     path="/login",
     method="POST"
 }, function(req, res)
+	local con = assert(mysql:connect(cfg.MySQL.db,cfg.MySQL.user,cfg.MySQL.pass, "192.168.1.250"))
     local rq = lnutils.explode("&", req.body)
     rq[1] = rq[1]:sub(6)
     rq[2] = rq[2]:sub(6)
-    res.headers["Set-Cookie"] = "session.laine="..lnutils.generate_session(con, rq[1], b64.encode(xy.hash("sha2"):digest(rq[2]))).."; HttpOnly"
+    local s = lnutils.generate_session(con, rq[1], b64.encode(xy.hash("sha2"):digest(rq[2])))
+    if (type(s) == "string") then
+    	res.headers["Set-Cookie"] = "session.laine="..lnutils.generate_session(con, rq[1], b64.encode(xy.hash("sha2"):digest(rq[2]))).."; HttpOnly"
+    else
+    	res.headers["Set-Cookie"] = "session.laine=nil; HttpOnly"
+    end
     res.headers["Location"] = "/"
     res.body = "OK"
     res.code = 303
+    con:close()
 end)
 
 .route({
@@ -202,6 +216,7 @@ end)
     path = "/cmd",
     method = "POST"
 }, function(req, res)
+	local con = assert(mysql:connect(cfg.MySQL.db,cfg.MySQL.user,cfg.MySQL.pass, "192.168.1.250"))
     if (req.admin) then
         local admin = "<div class=\"name\" style=\"color:#"..cfg["role_"..req.admin.perm].color.."\">"..cfg["role_"..req.admin.perm].prefix..req.admin.name.."</div>"
         local data = json.parse(req.body)
@@ -231,14 +246,21 @@ end)
         res.body = res.body:gsub("404", "403")
         res.code = 403
     end
+    con:close()
 end)
 
 .route({
   path = "/api/boards",
   method = "GET"
 }, function(req, res)
-  res.headers["Content-Type"] = "application/json; charset=utf-8"
-  res.body = json.stringify(boards)
+  req.query = req.query or {}
+  if (req.query.output == "msgpack") then
+    res.headers["Content-Type"] = "application/msgpack; charset=utf-8"
+    res.body = msg.pack(boards)
+  else
+    res.headers["Content-Type"] = "application/json; charset=utf-8"
+    res.body = json.stringify(boards)
+  end
   res.code = 200
 end)
 
@@ -246,7 +268,11 @@ end)
   path = "/api/threads",
   method = "GET"
 }, function(req, res)
-  if (cfg["board_"..req.query.board] == nil) then return end
+	local con = assert(mysql:connect(cfg.MySQL.db,cfg.MySQL.user,cfg.MySQL.pass, "192.168.1.250"))
+
+  req.query = req.query or {}
+  req.query.board = req.query.board or ""
+  if (cfg["board_"..req.query.board] == nil) then return con:close() end
   --Make our request.
   local cur = assert(con:execute("SELECT * FROM threads WHERE board='"..con:escape(req.query.board).."'"))
   local thd = {}
@@ -255,10 +281,11 @@ end)
   while row do
       thd[#thd+1] = {}
       thd[#thd].name = row.name
-      thd[#thd].id = tonummber(row.id)
+      thd[#thd].id = tonumber(row.id)
       thd[#thd].lastupdate = tonumber(row.lastupdate)
       thd[#thd].locked = row.locked ~= "0"
       thd[#thd].pinned = row.pinned ~= "0"
+      thd[#thd].length = lnutils.thread_length(con, req.query.board, row.id)
       row = cur:fetch({}, "a")
   end
 
@@ -268,20 +295,31 @@ end)
       if (b.pinned) then return false end
       return a.lastupdate > b.lastupdate
   end)
-  res.headers["Content-Type"] = "application/json; charset=utf-8"
-  res.body = json.stringify(thd)
+  if (req.query.output == "msgpack") then
+    res.headers["Content-Type"] = "application/msgpack; charset=utf-8"
+    res.body = msg.pack(thd)
+  else
+    res.headers["Content-Type"] = "application/json; charset=utf-8"
+    res.body = json.stringify(thd)
+  end
   res.code = 200
+  con:close()
 end)
 
 .route({
   path = "/api/posts",
   method = "GET"
 }, function(req, res)
-  if (cfg["board_"..req.query.board] == nil) then return end
+
+	local con = assert(mysql:connect(cfg.MySQL.db,cfg.MySQL.user,cfg.MySQL.pass, "192.168.1.250"))
+  req.query = req.query or {}
+  req.query.board = req.query.board or ""
+  req.query.id = req.query.id or ""
+  if (cfg["board_"..req.query.board] == nil) then return con:close() end
   local cur = assert(con:execute("SELECT name, locked FROM threads WHERE id='"..con:escape(req.query.id).."' AND board='"..con:escape(req.query.board).."'"))
   local thdinfo = cur:fetch({}, "a")
   cur:close()
-  if (thdinfo == nil) then return end
+  if (thdinfo == nil) then return con:close() end
   cur = assert(con:execute("SELECT * FROM posts WHERE id='"..con:escape(req.query.id).."'"))
   local posts = {}
   local r = {}
@@ -303,9 +341,15 @@ end)
   table.sort(posts, function(a, b)
       return a.id < b.id
   end)
-  res.headers["Content-Type"] = "application/json; charset=utf-8"
-  res.body = json.stringify(posts)
+  if (req.query.output == "msgpack") then
+    res.headers["Content-Type"] = "application/msgpack; charset=utf-8"
+    res.body = msg.pack(posts)
+  else
+    res.headers["Content-Type"] = "application/json; charset=utf-8"
+    res.body = json.stringify(posts)
+  end
   res.code = 200
+  con:close()
 end)
 
 --Board list
@@ -320,7 +364,6 @@ end)
     res.body = lustache:render(templates["boards"], {boards=boards, version=version, admin=req.admin})
     res.code = 200
 end)
-
 --Thread list
 .route({
     path = "/:board",
@@ -328,8 +371,9 @@ end)
         return req.path ~= "/"
     end
 }, function(req, res)
+	local con = assert(mysql:connect(cfg.MySQL.db,cfg.MySQL.user,cfg.MySQL.pass, "192.168.1.250"))
     --Check if valid board.
-    if (cfg["board_"..req.params.board] == nil) then return end
+    if (cfg["board_"..req.params.board] == nil) then return con:close() end
     --Make our request.
     local cur = assert(con:execute("SELECT * FROM threads WHERE board='"..con:escape(req.params.board).."'"))
     local thd = {}
@@ -339,6 +383,7 @@ end)
         thd[#thd+1] = row
         thd[#thd].locked = thd[#thd].locked ~= "0"
         thd[#thd].pinned = thd[#thd].pinned ~= "0"
+        thd[#thd].length = lnutils.thread_length(con, req.params.board, thd[#thd].id)
         row = cur:fetch({}, "a")
     end
 
@@ -359,6 +404,7 @@ end)
     --Render!
     res.body = lustache:render(templates["threads"], {threads=thd, board=req.params.board, desc1=cfg["board_"..req.params.board].desc1, desc2=cfg["board_"..req.params.board].desc2, title=cfg["board_"..req.params.board].title, version=version, admin=req.admin, canpin=canpin, canlock=canlock, canmark=canmark,boards=boards})
     res.code = 200
+    con:close()
 end)
 
 .route({
@@ -366,7 +412,7 @@ end)
 }, function(req, res)
     --Check if valid board.
     if (cfg["board_"..req.params.board] == nil) then return end
-    res.body = lustache:render(templates["new"], {board=req.params.board, version=version, boards=boards})
+    res.body = lustache:render(templates["new"], {board=req.params.board, version=version, boards=boards, noimg=cfg["board_"..req.params.board].noimg})
     res.code = 200
 end)
 
@@ -375,16 +421,18 @@ end)
     path = "/:board/nt",
     method = "POST"
 }, function(req, res)
+	local con = assert(mysql:connect(cfg.MySQL.db,cfg.MySQL.user,cfg.MySQL.pass, "192.168.1.250"))
     --Check if valid board.
     if (#req.body > 6 * 1024 * 1024) then
         req.body = req.body:gsub("403", "413")
         req.code = 413
         return
     end
-    if (cfg["board_"..req.params.board] == nil) then return end
+    if (cfg["board_"..req.params.board] == nil) then return con:close() end
     local data = lnutils.get_multiform_data(req)
     --Check if valid board.
-    if (cfg["board_"..data.board] == nil) then return end
+    data.board = data.board or req.params.board
+    if (cfg["board_"..data.board] == nil) then returncon:close() end
     --Make sure the title is not too long.
     if (1 > utf8.len(data.title) or 40 < utf8.len(data.title)) then
         data.title="sam likes dick"
@@ -415,7 +463,8 @@ end)
     end
     local hasfile = 0
     local file = ""
-    if (data.file.data ~= "") then
+    data.file = data.file or {}
+    if (data.file.data ~= "" and not cfg["board_"..req.params.board].noimg) then
         if (not fs.existsSync("imgs/"..data.board.."/")) then
             fs.mkdirSync("imgs/"..data.board)
         end
@@ -428,7 +477,7 @@ end)
                 file = "/imgs/"..req.params.board.."/"..id.."/"..b64.encode(xy.hash("sha2"):digest(fdata)).."."..lnutils.detect_img_type(fdata)
                 local tmpfile = b64.encode(xy.hash("sha2"):digest(fdata)).."."..lnutils.detect_img_type(fdata)
                 if (lnutils.detect_img_type(fdata) == "webm") then
-                  fs.writeFileSync("/tmp/luna/"..tmpfile, fdata)
+                  fs.writeFileSync("."..file, fdata)
                   lnutils.strip_sound(tmpfile, file)
                   hasfile = 2
                 else
@@ -440,15 +489,17 @@ end)
     end
     assert(con:execute(string.format("INSERT INTO threads VALUES ('%s', '%s', %d, '%s', %d, 0, 0, 0)", con:escape(data.board), con:escape(data.title), id, con:escape(req.headers["X-Forwarded-For"] or "localhost"), os.time())))
     assert(con:execute(string.format("INSERT INTO posts (date, board, id, ip, post, admin, hasimg, img) VALUES (%d, '%s', '%s', '%s', '%s', '%s', %d, '%s')", os.time(), con:escape(data.board), id, con:escape(req.headers["X-Forwarded-For"] or "localhost"), con:escape(lnutils.ptext(lnutils.escape_html(data.content, req.admin))), con:escape(admin), hasfile, con:escape(file))))
-    res.body = "ok"
+    res.body = tostring(id)
     res.headers["Location"] = "/"..req.params.board.."/"..tostring(id)
     res.code = 303
+    con:close()
 end)
 --Posting
 .route({
     path="/:board/post",
     method="POST"
 }, function(req, res)
+	local con = assert(mysql:connect(cfg.MySQL.db,cfg.MySQL.user,cfg.MySQL.pass, "192.168.1.250"))
     --local data=json.parse(req.body)
     local co = coroutine.create(function()
         if (#req.body > 6 * 1024 * 1024) then
@@ -458,11 +509,11 @@ end)
         end
         local data = lnutils.get_multiform_data(req)
         --Do our checks
-        if (cfg["board_"..data.board] == nil) then return end
+        if (cfg["board_"..data.board] == nil) then return con:close() end
         local cur = assert(con:execute("SELECT name, locked FROM threads WHERE id='"..con:escape(data.id).."' AND board='"..con:escape(data.board).."'"))
         local thdinfo = cur:fetch({}, "a")
         cur:close() --Close it!
-        if (thdinfo == nil) then return end
+        if (thdinfo == nil) then return con:close() end
         --Make sure the post is not too long.
         if (1 > utf8.len(data.content) or 2000 < utf8.len(data.content)) then
             data.content = "and that's why we should take over poland"
@@ -474,7 +525,8 @@ end)
         end
         local hasfile = 0
         local file = ""
-        if (data.file.data ~= "") then
+        data.file = data.file or {}
+        if (data.file.data ~= "" and not cfg["board_"..req.params.board].noimg) then
             if (not fs.existsSync("imgs/"..data.board.."/")) then
                 fs.mkdirSync("imgs/"..data.board)
             end
@@ -487,8 +539,8 @@ end)
                   file = "/imgs/"..req.params.board.."/"..data.id.."/"..b64.encode(xy.hash("sha2"):digest(fdata)).."."..lnutils.detect_img_type(fdata)
                   local tmpfile = b64.encode(xy.hash("sha2"):digest(fdata)).."."..lnutils.detect_img_type(fdata)
                   if (lnutils.detect_img_type(fdata) == "webm") then
-                    fs.writeFileSync("/tmp/luna/"..tmpfile, fdata)
-                    lnutils.strip_sound(tmpfile, file)
+                    fs.writeFileSync("."..file, fdata)
+                    --lnutils.strip_sound(tmpfile, file)
                     hasfile = 2
                   else
                     fs.writeFile("."..file, fdata, function() end)
@@ -502,36 +554,49 @@ end)
         res.headers["Location"] = "/"..req.params.board.."/"..data.id
         res.body = "ok"
         res.code = 303
+        con:close()
     end)
     coroutine.resume(co)
 end)
 
 .route({path="/:board/:id"}, function(req, res)
+	local con = assert(mysql:connect(cfg.MySQL.db,cfg.MySQL.user,cfg.MySQL.pass, "192.168.1.250"))
     --Make sure board and ID exist.
-    if (cfg["board_"..req.params.board] == nil) then return end
+    if (cfg["board_"..req.params.board] == nil) then return con:close() end
     local cur = assert(con:execute("SELECT name, locked FROM threads WHERE id='"..con:escape(req.params.id).."' AND board='"..con:escape(req.params.board).."'"))
     --Get the name while we're at it.
     local thdinfo = cur:fetch({}, "a")
     cur:close() --Close it!
-    if (thdinfo == nil) then return end
+    if (thdinfo == nil) then return con:close() end
     --Get posts
     cur = assert(con:execute("SELECT * FROM posts WHERE id='"..con:escape(req.params.id).."'"))
     --Put them in a nice table.
     local posts = {}
     local r = {}
+    local post = nil
     while r do
         r = cur:fetch({}, "a")
+        if (post == nil) then
+        	post = r.post
+        end
         if (r ~= nil) then
             posts[#posts+1] = r
             posts[#posts].hasvid = posts[#posts].hasimg == "2"
             posts[#posts].hasimg = posts[#posts].hasimg == "1"
         end
     end
+    if (#posts == 0) then
+        posts[1] = {
+		postid=0,
+		post = ""
+	}
+	post = ""
+    end
     --TODO add admin check and shit
 
     --Sort by ID.
     table.sort(posts, function(a, b)
-        return a.postid < b.postid
+        return tonumber(a.postid) < tonumber(b.postid)
     end)
     --Render
     res.body = lustache:render(templates["thread"], {
@@ -541,6 +606,7 @@ end)
         locked=thdinfo.locked~="0",
         posts=posts,
         desc1=cfg["board_"..req.params.board].desc1,
+        noimg=cfg["board_"..req.params.board].noimg,
         version=version,
         getpostid = function(self)
             return self.postid
@@ -552,7 +618,7 @@ end)
             return os.date("%a %b %d, %Y %X", tonumber(self.date))
         end,
         getsize = function(self)
-            return fsize(fs.statSync("."..self.img).size)
+            return fsize((fs.statSync("."..self.img) or {}).size or 0)
         end,
         isadmin = req.admin ~= nil,
         canban = hasperm(req, "ban"),
@@ -564,14 +630,17 @@ end)
           else
             return "/static/assets/nothumb.jpg"
           end
-        end
+        end,
+        firstpost = post:gsub("<.->", "")
     })
     res.code = 200
+    con:close()
 end)
 
 .start()
 print("Cleaning up threads and starting...")
 function threadgc()
+	local con = assert(mysql:connect(cfg.MySQL.db,cfg.MySQL.user,cfg.MySQL.pass, "192.168.1.250"))
     local r = assert(con:execute("SELECT id, board FROM threads WHERE marked=1"))
     local t = r:fetch({}, "a")
     while t do
@@ -601,9 +670,10 @@ function threadgc()
     os.execute("rm -rf /tmp/luna")
     os.execute("mkdir /tmp/luna")
     print("Thread-GC Complete.")
+    con:close()
 end
 
-threadgc()
+--threadgc()
 
 timer.setInterval(60*60*10, function()
     templates = {
@@ -618,4 +688,4 @@ timer.setInterval(60*60*10, function()
     fs.writeFileSync("ipbans.json", json.stringify(ipbans))
 end)
 
-timer.setInterval(60*60*30, threadgc)
+--timer.setInterval(60*60*30, threadgc)

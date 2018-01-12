@@ -1,0 +1,18 @@
+-----------------------------37871437514109414121395239075
+Content-Disposition: form-data; name="file"; filename=""
+Content-Type: application/octet-stream
+
+
+-----------------------------37871437514109414121395239075
+Content-Disposition: form-data; name="content"
+
+test2
+-----------------------------37871437514109414121395239075
+Content-Disposition: form-data; name="board"
+
+l
+-----------------------------37871437514109414121395239075
+Content-Disposition: form-data; name="id"
+
+1726766511
+-----------------------------37871437514109414121395239075--

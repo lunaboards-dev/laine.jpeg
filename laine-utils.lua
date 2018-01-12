@@ -79,7 +79,7 @@ lu.has_perm = function(c, a, s)
     local p = c["role_"..a.perm]
     return p[s]
 end
-
+--Detect image type
 lu.detect_img_type = function(data)
   if (data:sub(1,4) == string.char(0x89, 0x50, 0x4e, 0x47)) then return "png" end
   if (data:sub(1,3) == string.char(0xff, 0xd8, 0xff)) then return "jpeg" end
@@ -87,7 +87,7 @@ lu.detect_img_type = function(data)
   if (data:sub(1, 64):find("webm") ~= nil) then return "webm" end
   return "not img"
 end
-
+--Better RNG
 lu.true_rand = function()
   local r = crand:read(1):byte()
   r=r+bit.lshift(crand:read(1):byte(), 8)
@@ -96,11 +96,12 @@ lu.true_rand = function()
   r=r+bit.lshift(1, 33)
   return math.abs(r)
 end
-
+--(don't) strip sound from webms
 lu.strip_sound = function(tmp, file)
-  os.execute("sleep 0.1")
-  p(os.capture(string.format("ffmpeg -y -i /tmp/luna/%s -vcodec copy -an .%s", tmp, file), true))
-  p(string.format("ffmpeg -y -i /tmp/luna/%s -vf \"select=eq(n\\,0)\" -q:v 3 .%s_thumb.jpg", tmp, file))
+  --os.execute("sleep 0.1")
+  --p(os.capture(string.format("ffmpeg -y -i /tmp/luna/%s -vcodec copy -an .%s", tmp, file), true))
+ -- p(string.format("ffmpeg -y -i /tmp/luna/%s -vf \"select=eq(n\\,0)\" -q:v 3 .%s_thumb.jpg", tmp, file))
+  p(os.capture(string.format("cp /tmp/luna/%s .%s", tmp, file)))
   p(os.capture(string.format("ffmpeg -y -i %s -vf \"select=eq(n\\,0)\" -q:v 3 .%s_thumb.jpg", tmp, file), true))
   --os.execute("rm /tmp/luna/"..tmp)
 end
@@ -158,6 +159,13 @@ lu.get_multiform_data = function(req)
     s, e = ss, se
   end
   return t
+end
+
+lu.thread_length = function(sql, board, thread)
+  if (type(thread) ~= "string") then thread = tostring(thread) end
+  local r = sql:execute("SELECT COUNT(postid) FROM posts WHERE board='"..sql:escape(board).."' AND id="..sql:escape(thread))
+  local f = r:fetch({})
+  return tonumber(f[1])
 end
 
 return lu

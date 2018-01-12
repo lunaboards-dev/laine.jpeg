@@ -135,7 +135,7 @@
         {{#pinned}}
           <span style="color:yellow;font-weight:bold">PINNED: </span>
         {{/pinned}}
-        <a href="/{{board}}/{{id}}" {{#locked}}class="closed_thread"{{/locked}}>{{name}}</a><br>
+        <a href="/{{board}}/{{id}}" {{#locked}}class="closed_thread"{{/locked}} data-length="{{length}}" x-data-length="{{length}}">{{name}}</a><br>
       {{/threads}}
 		</center>
 		<br>
